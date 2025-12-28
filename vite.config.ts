@@ -1,6 +1,7 @@
 import vue from '@vitejs/plugin-vue'
 
 export default {
+  base: '/ffmpeg-merge/',
   plugins: [vue()],
   optimizeDeps: {
     exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
