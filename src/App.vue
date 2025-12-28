@@ -19,11 +19,14 @@ async function load() {
   }
   loading.value = true
   ffmpeg.on('log', ({message}) => {
-    messageRef.value.innerHTML = message
+    if (message.toLowerCase()?.includes('abort')) {
+      return messageRef.value = ''
+    }
+    messageRef.value = message
     console.log(message)
   })
   ffmpeg.on('progress', ({progress, time}) => {
-    progressRef.value.innerHTML = `${progress * 100} % (transcoded time: ${time / 1000000} s)`
+    progressRef.value = `${(progress * 100).toFixed(2)} % (已转换的视频时长: ${(time / 1000000).toFixed(2)} s)`
   })
   // toBlobURL is used to bypass CORS issue, urls with the same
   // domain can be used directly.
@@ -57,6 +60,17 @@ async function transcode() {
   videoRef.value.src = targetUrl.value
 }
 
+function resetUrl() {
+  if (targetUrl.value) {
+    try {
+      URL.revokeObjectURL(targetUrl.value)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+  targetUrl.value = ''
+}
+
 function download() {
   const a = document.createElement('a')
   a.href = targetUrl.value
@@ -87,20 +101,97 @@ function handleFileChange() {
   }
   selectedFiles.value = fileInput.value.files // Get the FileList object
 }
+
+function reset() {
+  selectedFiles.value = []
+  progressRef.value = ''
+  messageRef.value = ''
+  resetUrl()
+}
 </script>
 <template>
   <div v-if="loaded">
-    <video width="400" height="400" ref="videoRef" controls></video>
-    <br/>
-    <input v-if="!selectedFiles?.length" type="file" ref="fileInput" multiple @change="handleFileChange">
-    <button v-else-if="!targetUrl" @click="transcode">合并文件</button>
-    <button v-else @click="download">下载</button>
-    <p ref="progressRef"></p>
-    <p ref="messageRef"></p>
+    <video ref="videoRef" controls></video>
+    <label v-if="!selectedFiles?.length">
+      <span>选择文件</span>
+      <input type="file" ref="fileInput" multiple @change="handleFileChange">
+    </label>
+    <div v-else-if="!targetUrl">
+      <span>已选择 {{ selectedFiles?.length }} 个文件</span>
+      <button @click="transcode">开始合并文件</button>
+    </div>
+    <div v-else>
+      <button @click="download">下载</button>
+      <button @click="reset">重新选择</button>
+    </div>
+    <p v-if="progressRef">{{ progressRef }}</p>
+    <p v-if="messageRef">{{ messageRef }}</p>
     <p v-if="false">Open Developer Tools (Ctrl+Shift+I) to View Logs</p>
   </div>
-  <button v-else-if="loading">正在加载...</button>
-  <button v-else @click="load">点击加载 ffmpeg 库文件 (约 31 MB)</button>
+  <button v-else-if="loading">正在下载...</button>
+  <button v-else @click="load">点击下载转码库 (约 31 MB)</button>
 </template>
-<style scoped>
+<style lang="scss">
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+
+  &, div {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  div {
+    gap: 2vh;
+    width: 100%;
+    max-width: 80vw;
+    flex-direction: column;
+  }
+
+  p {
+    width: 100%;
+    max-width: 80vw;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  button {
+    width: 100%;
+    height: 6vh;
+    max-width: 80vw;
+    border-radius: 3vh;
+  }
+
+  video {
+    width: 80vw;
+    height: 50vw;
+  }
+
+  label {
+    width: 100%;
+
+    span {
+      border: 1px solid currentColor;
+      justify-content: center;
+      box-sizing: border-box;
+      display: inline-flex;
+      align-items: center;
+      border-radius: 3vh;
+      padding: 1vh;
+      height: 6vh;
+      width: 100%;
+    }
+
+    input {
+      display: none;
+    }
+  }
+}
 </style>
